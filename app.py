@@ -10,23 +10,6 @@ import openpyxl
 import mojimoji
 
 
-
-
-def create_StringVar(text):
-    stringVar = tk.StringVar()
-    stringVar.set(text)
-    return stringVar
-
-
-def create_ListBox(frame, functions):
-    stringVar = create_StringVar(functions)
-    listBox = tk.Listbox(frame, justify='center', selectmode='browse', listvariable=stringVar, height=1)
-    scroll_bar = tk.Scrollbar(frame, command=listBox.yview)
-    scroll_bar.pack(side='right', fill='y')
-    listBox['yscrollcommand'] = scroll_bar.set
-    return listBox
-
-
 def create_ComboBox(frame, variables, state='disabled'):
     comboBox = ttk.Combobox(frame, height=1, width=30, justify='center', state=state, values=variables)
     if len(variables) > 0:
@@ -50,10 +33,14 @@ def csv2xlsx(csv_path):
     return excel_path
 
 
-
 def parse_selected_col(col_string):
+    """
+    選択した列をパースする
+    元の値 A:C, F
+    変換後 [[A,B,C],[F]]
+    """
     tmp = []
-    col_string = mojimoji.zen_to_han(col_string).replace(' ','')
+    col_string = mojimoji.zen_to_han(col_string).replace(' ', '')
     for char in col_string.split(','):
         if char == '':
             continue
@@ -104,20 +91,21 @@ class Application(tk.Tk):
         self.btnRun = tk.Button(self, text='実行', state='disabled', command=self.run)
 
         # frameに配置
-        self.label_file.grid(row=0, column=0, sticky=tk.NSEW, pady=5)
-        self.dialog_file.grid(row=0, column=1, sticky=tk.NSEW, pady=5)
-        self.btn_select_file.grid(row=0, column=2, sticky=tk.NSEW, pady=5)
-
-        self.label_sheet.grid(row=1, column=0, sticky=tk.NSEW, pady=5)
-        self.combo_sheet.grid(row=1, column=1, sticky=tk.NSEW, pady=5)
-
-        self.label_col.grid(row=2, column=0, sticky=tk.NSEW, pady=5)
-        self.dialog_col.grid(row=2, column=1, sticky=tk.NSEW, pady=5)
-        self.btn_tips_col.grid(row=2, column=2, sticky=tk.NSEW, pady=5)
+        # ファイル選択
+        self.label_file.grid(row=0, column=0, sticky=tk.NSEW, pady=5, padx=5)
+        self.dialog_file.grid(row=0, column=1, sticky=tk.NSEW, pady=5, padx=5)
+        self.btn_select_file.grid(row=0, column=2, sticky=tk.NSEW, pady=5, padx=5)
+        # シート選択
+        self.label_sheet.grid(row=1, column=0, sticky=tk.NSEW, pady=5, padx=5)
+        self.combo_sheet.grid(row=1, column=1, sticky=tk.NSEW, pady=5, padx=5)
+        # 列選択
+        self.label_col.grid(row=2, column=0, sticky=tk.NSEW, pady=5, padx=5)
+        self.dialog_col.grid(row=2, column=1, sticky=tk.NSEW, pady=5, padx=5)
+        self.btn_tips_col.grid(row=2, column=2, sticky=tk.NSEW, pady=5, padx=5)
         # self.btn_select_col.grid(row=2, column=2, sticky=tk.NSEW, pady=5)
-
-        self.label_func.grid(row=3, column=0, sticky=tk.NSEW, pady=5)
-        self.combo_func.grid(row=3, column=1, sticky=tk.NSEW, pady=5)
+        # 関数選択
+        self.label_func.grid(row=3, column=0, sticky=tk.NSEW, pady=5, padx=5)
+        self.combo_func.grid(row=3, column=1, sticky=tk.NSEW, pady=5, padx=5)
 
         # windowに配置
         self.frame.pack()
@@ -148,44 +136,23 @@ class Application(tk.Tk):
         self.dialog_col['state'] = 'normal'  # 選択例: A,G:H,AL:AT
         # self.btn_select_col['state'] = 'normal'
         # 操作選択を有効にする
-        self.combo_func['state'] = 'normal'
+        self.combo_func['state'] = 'readonly'
         # 実行ボタンを有効にする
         self.btnRun['state'] = 'normal'
-
-    def select_col(self):
-        """
-        作成中
-        # サブウィンドウ作成
-        # 値の入っている列一覧
-        cols = [openpyxl.utils.get_column_letter(i + 1) for i in range(self.wb[self.combo_sheet.get()].max_column)]
-        # 1行目の内容
-        values = [str(self.wb[self.combo_sheet.get()][col][0].value) for col in cols]
-        # 列番号+内容
-        col_with_value = [f'{cols[i]}({values[i][:12]})' if len(values[i]) > 12 else f'{cols[i]}({values[i]})' for i in
-                          range(len(values))]
-        """
-        print(parse_selected_col(self.dialog_col.get()))
 
     def run(self):
         tgt_cols = parse_selected_col(self.dialog_col.get())  # 対象となる列一覧
         func_name = self.combo_func.get()  # 適用する関数
         func = self.funcs[func_name]
-        tgt_sheet = self.wb.create_sheet(title=f'{func_name}')
         try:
-            func.run(self.wb[self.combo_sheet.get()], tgt_sheet, tgt_cols)
+            func.run(self.wb, self.combo_sheet.get(), tgt_cols)
             self.wb.save(self.target_file)
             messagebox.showinfo('確認', '変換が完了しました')
         except Exception as e:
-            #print('=== エラー内容 ===')
-            #print('type:' + str(type(e)))
-            #print('args:' + str(e.args))
-            #print('message:' + e.message)
-            #print('error:' + str(e))
             sentence = '変換中にエラーが発生しました\n' \
                        '=== エラー内容 ===\n' \
                        f'type:{str(type(e))}\n' \
                        f'args:{str(e.args)}\n' \
-                       f'message:{e.message}\n' \
                        f'error:{str(e)}'
             messagebox.showerror('警告', sentence)
 
@@ -196,9 +163,3 @@ class Application(tk.Tk):
                    "C列~H列→C:H\n" \
                    "A列とC列~H列→A,C:H\n"
         messagebox.showinfo('説明', sentence)
-
-
-
-
-
-
